@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-Adventure Spiel: Die Stadt der Diebe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.5s ease;
+            background-color: #8B4513; /* Default background color */
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #title-image {
+            display: block;
+            margin: 0 auto 20px auto;
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        #game-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        #story {
+            margin-bottom: 20px;
+            color: #555;
+        }
+        button {
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button.path {
+            background-color: #8B4513; /* Braun für Wege */
+            color: white;
+        }
+        button.action {
+            background-color: #DAA520; /* Ocker für Karte und Inventar */
+            color: white;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #inventory, #map {
+            display: none;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 800px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        #map img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        #intro-container {
+            display: none;
+            background-color: #191970; /* Midnightblue */
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            flex-direction: column;
+        }
+        #intro-container video {
+            max-width: 90%;
+            height: auto;
+        }
+        #intro-container button {
+            margin-top: 20px;
+            background-color: #DAA520;
+            color: white;
+            font-size: 18px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hintergrundmusik -->
+    <audio id="background-music" src="musik/tavernenmusik.mp3" loop></audio>
+
+    <div id="intro-container">
+        <video id="intro-video" src="image/Titel2.mov" autoplay></video>
+        <button id="start-button" style="display: none;" onclick="startGame()">Starte das Spiel</button>
+    </div>
+    <h1>Text-Adventure Spiel: Die Stadt der Diebe</h1>
+    <img id="title-image" src="image/gasthaus.png" alt="Titelbild für das Spiel">
+    <div id="game-container">
+        <div id="story">Willkommen im Gasthaus! Was möchtest du tun?</div>
+        <div id="choices">
+            <button class="action" onclick="talkToInnkeeper()">Mit dem Wirt sprechen</button>
+            <button class="action" onclick="joinDiceGame()">Am Würfelspiel teilnehmen</button>
+            <button class="path" onclick="navigate('Breiter Weg')">Gasthaus verlassen (Norden)</button>
+            <button class="path" onclick="navigate('Schmale Gasse')">Gasthaus verlassen (Süden zur Sackgasse)</button>
+            <button class="action" onclick="showInventory()">Inventar anzeigen</button>
+            <button class="action" onclick="toggleMap()">Karte anzeigen</button>
+        </div>
+    </div>
+
+    <div id="inventory">
+        <h2>Dein Inventar</h2>
+        <ul id="inventory-list"></ul>
+        <button class="action" onclick="closeInventory()">Schließen</button>
+    </div>
+
+    <div id="map">
+        <h2>Die Karte</h2>
+        <img src="image/karte.png" alt="Karte der Stadt">
+        <button class="action" onclick="toggleMap()">Schließen</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const introContainer = document.getElementById("intro-container");
+            const introVideo = document.getElementById("intro-video");
+            const startButton = document.getElementById("start-button");
+            const gameContent = document.getElementById("game-container");
+            const titleImage = document.getElementById("title-image");
+            const backgroundMusic = document.getElementById("background-music");
+
+            introContainer.style.display = "flex";
+            gameContent.style.display = "none";
+            titleImage.style.display = "none";
+
+            backgroundMusic.play().catch(() => {
+                const playButton = document.createElement("button");
+                playButton.textContent = "Musik starten";
+                playButton.style.position = "absolute";
+                playButton.style.top = "10px";
+                playButton.style.left = "10px";
+                playButton.onclick = () => {
+                    backgroundMusic.play();
+                    playButton.remove();
+                };
+                document.body.appendChild(playButton);
+            });
+
+            introVideo.addEventListener("ended", () => {
+                setTimeout(() => {
+                    startButton.style.display = "block";
+                }, 5000); // Wait 5 seconds after video ends
+            });
+        };
+
+        function startGame() {
+            const introContainer = document.getElementById("intro-container");
+            const gameContent = document.getElementById("game-container");
+            const titleImage = document.getElementById("title-image");
+
+            introContainer.style.display = "none";
+            document.body.style.backgroundColor = "#8B4513"; // Reset background color
+            gameContent.style.display = "block";
+            titleImage.style.display = "block";
+        }
+
+        let currentLocation = "Gasthaus";
+        let inventory = []; // Spieler-Inventar
+
+        const locationSettings = {
+            "Gasthaus": {
+                image: "image/gasthaus.png",
+                color: "#f4e5c1"
+            },
+            "Breiter Weg": {
+                image: "image/breiter_weg.png",
+                color: "#e2f0d9"
+            },
+            "Waffenhändler": {
+                image: "image/waffenhaendler.png",
+                color: "#c5c7d7"
+            },
+            "Werkzeughändler": {
+                image: "image/werkzeughaendler.png",
+                color: "#d0e4f7"
+            },
+            "Schmale Gasse": {
+                image: "image/schmale_gasse.png",
+                color: "#5c5c5c"
+            },
+            "Sackgasse": {
+                image: "image/sackgasse.png",
+                color: "#4c4c4c"
+            }
+        };
+
+        function updateStory(text) {
+            document.getElementById("story").innerText = text;
+        }
+
+        function updateChoices(buttonsHTML) {
+            document.getElementById("choices").innerHTML = buttonsHTML;
+        }
+
+        function updateImage(location) {
+            const imageElement = document.getElementById("title-image");
+            const body = document.body;
+
+            if (locationSettings[location]) {
+                imageElement.src = locationSettings[location].image;
+                imageElement.alt = `Bild für ${location}`;
+                body.style.backgroundColor = locationSettings[location].color;
+            }
+        }
+
+        function navigate(location) {
+            currentLocation = location;
+            updateImage(location);
+
+            if (location === "Gasthaus") {
+                updateStory("Du bist im Gasthaus. Was möchtest du tun?");
+                updateChoices(`
+                    <button class="action" onclick="talkToInnkeeper()">Mit dem Wirt sprechen</button>
+                    <button class="action" onclick="joinDiceGame()">Am Würfelspiel teilnehmen</button>
+                    <button class="path" onclick="navigate('Breiter Weg')">Gasthaus verlassen (Norden)</button>
+                    <button class="path" onclick="navigate('Schmale Gasse')">Gasthaus verlassen (Süden zur Sackgasse)</button>
+                    <button class="action" onclick="showInventory()">Inventar anzeigen</button>
+                    <button class="action" onclick="toggleMap()">Karte anzeigen</button>
+                `);
+            } else if (location === "Breiter Weg") {
+                updateStory("Du bist auf dem breiten Weg. Es ist geschäftig hier.");
+                updateChoices(`
+                    <button class="path" onclick="navigate('Waffenhändler')">Nach Norden: Waffenhändler</button>
+                    <button class="path" onclick="navigate('Werkzeughändler')">Nach Osten: Werkzeughändler</button>
+                    <button class="path" onclick="navigate('Gasthaus')">Zurück zum Gasthaus (Süden)</button>
+                    <button class="action" onclick="showInventory()">Inventar anzeigen</button>
+                    <button class="action" onclick="toggleMap()">Karte anzeigen</button>
+                `);
+            } else if (location === "Schmale Gasse") {
+                updateStory("Du betrittst die schmale Gasse. Es scheint gefährlich hier.");
+                updateChoices(`
+                    <button class="path" onclick="navigate('Sackgasse')">Weiter zur Sackgasse</button>
+                    <button class="path" onclick="navigate('Gasthaus')">Zurück zum Gasthaus (Norden)</button>
+                    <button class="action" onclick="toggleMap()">Karte anzeigen</button>
+                `);
+            } else if (location === "Sackgasse") {
+                updateStory("Du bist in der Sackgasse. Möchtest du kämpfen oder zurückgehen?");
+                updateChoices(`
+                    <button class="action" onclick="startCombat()">Kämpfen</button>
+                    <button class="path" onclick="navigate('Schmale Gasse')">Zurück zur schmalen Gasse</button>
+                    <button class="action" onclick="toggleMap()">Karte anzeigen</button>
+                `);
+            }
+        }
+
+        function talkToInnkeeper() {
+            updateStory("Wirt: \"Die Schatzkammer wird streng bewacht. Die Diebe hier haben einen Dolch, falls du etwas Glück hast!\"");
+        }
+
+        function joinDiceGame() {
+            const roll = Math.floor(Math.random() * 6) + 1;
+            if (roll === 6) {
+                inventory.push("Dolch");
+                updateStory("Du hast den Dolch gewonnen! Die Diebes-Gilde ist wütend und wird dich verfolgen.");
+            } else {
+                updateStory("Du hast verloren. Die Diebe lachen dich aus.");
+            }
+        }
+
+        function startCombat() {
+            if (inventory.includes("Dolch")) {
+                updateStory("Du kämpfst tapfer und besiegst die Angreifer in der Sackgasse!");
+            } else {
+                updateStory("Du bist unbewaffnet und wirst überwältigt. Du solltest dir eine Waffe besorgen!");
+            }
+        }
+
+        function showInventory() {
+            const inventoryDiv = document.getElementById("inventory");
+            const inventoryList = document.getElementById("inventory-list");
+
+            inventoryList.innerHTML = inventory.length
+                ? inventory.map(item => `<li>${item}</li>`).join("")
+                : "<li>Dein Inventar ist leer.</li>";
+
+            inventoryDiv.style.display = "block";
+        }
+
+        function closeInventory() {
+            document.getElementById("inventory").style.display = "none";
+        }
+
+        function toggleMap() {
+            const mapDiv = document.getElementById("map");
+            mapDiv.style.display = mapDiv.style.display === "block" ? "none" : "block";
+        }
+    </script>
+</body>
+</html>
+
